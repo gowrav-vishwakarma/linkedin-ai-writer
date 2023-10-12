@@ -1,0 +1,32 @@
+{
+  "name": "My AI Writer for LinkedIn",
+  "version": "2.0.0",
+  "description": "Autocomplete text with OpenAI GPT-3",
+  "update_url": "https://epan.in/extensions/linkedin-responder/updates.xml",
+  "manifest_version": 3,
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/*"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
+      "css": [
+        "contentScript.css"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icon.png"
+    },
+    "default_title": "My Extension",
+    "default_popup": "popup.html"
+  }
+}

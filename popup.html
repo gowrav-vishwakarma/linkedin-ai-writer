@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Enter API Key</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      min-width: 400px;
+    }
+      h2 {
+    text-align: center;
+    margin-top: 40px;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+  }
+
+  label {
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  input[type="text"] {
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    margin-bottom: 20px;
+    width: 300px;
+  }
+
+  input[type="submit"] {
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+    background-color: #008CBA;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  input[type="submit"]:hover {
+    background-color: #005f70;
+  }
+
+  .made-with-love {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .made-with-love a {
+    color: #008CBA;
+    text-decoration: none;
+  }
+
+  .made-with-love a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+</head>
+
+<body>
+  <h2>Please enter your OpenAI API key:</h2>
+  <form>
+    <label for="api-key">API Key:</label>
+    <input type="text" id="api-key" name="api-key" /><br />
+    <input type="submit" value="Submit" />
+  </form>
+  <div class="made-with-love">
+    Made with love by <a href="https://www.linkedin.com/in/gowravvishwakarma/">Gowrav Vishwakarma</a>
+  </div>
+  <script src="popup.js"></script>
+</body>
+
+</html>

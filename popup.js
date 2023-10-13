@@ -2,30 +2,30 @@ const DEFAULT_PROMPTS = [
   {
     label: "$ _",
     position: "new_post",
-    text: "${editingBoxText}",
+    text: "$text",
     replaceText: true,
   },{
     label: "$ _",
     position: "comment",
-    text: "${editingBoxText}",
+    text: "$text",
     replaceText: true,
   },
     {
     label: "Professionalize",
     position: "new_post",
-    text: "Please convert this text to professional language for my linkedin post: ${editingBoxText}",
+    text: "Please convert this text to professional language for my linkedin post: $text",
       replaceText: true,
   },,
     {
     label: "Professionalize comment",
     position: "comment",
-    text: "Please convert this text to professional language for my linkedin comment for a post where this is post content \n\n\n\n '''${postContent}''' \n\n\n And this is what I want to say \n\n\n ${editingBoxText}",
+    text: "Please convert this text to professional language for my linkedin comment for a post where this is post content \n\n\n\n '''$post''' \n\n\n And this is what I want to say \n\n\n $text",
         replaceText: true,
   },
   {
     label: "ToHindi",
     position: "comment",
-    text: "can you translate the following content to Hindi:\n\n ${postContent}",
+    text: "can you translate the following content to Hindi:\n\n $post",
         replaceText: false,
   },
 ];

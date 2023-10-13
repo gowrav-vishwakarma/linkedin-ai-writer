@@ -48,17 +48,17 @@ function createIcon(editingBox) {
         btn.addEventListener('click', async (event) => {
             event.preventDefault();
             const {editingBoxText, commentContent, postContent} = getTextFromCommentary(editingBox);
-
+            console.log('editingBoxText:', editingBoxText, 'postContent:', postContent, 'commentContent:', commentContent);
             let promptText = prompt.text;
             console.log('Prompt text before:', promptText);
-            if (postContent) promptText = promptText.replace('${postContent}', postContent);
-            if (commentContent) promptText = promptText.replace('${commentContent}', commentContent);
-            if (editingBoxText) promptText = promptText.replace('${editingBoxText}', editingBoxText);
-            console.log('Prompt text:', promptText, 'editingBoxText:', editingBoxText, 'postContent:', postContent, 'commentContent:', commentContent);
+            promptText = promptText.replace(/\$text/g, editingBoxText);
+            promptText = promptText.replace(/\$post/g, postContent);
+            promptText = promptText.replace(/\$comment/g, commentContent);
+            console.log('Prompt text:', promptText);
             const response = await sendMessageToOpenAI(promptText);
             if (prompt.replaceText) {
                 editingBox.innerText = response;
-            }else{
+            } else {
                 alert(response);
             }
         });
@@ -175,9 +175,9 @@ async function sendMessageToOpenAI(prompt) {
 
     const data = {
         model: 'gpt-3.5-turbo',
-        messages:[{"role":"user", "content": prompt}],
+        messages: [{'role': 'user', 'content': prompt}],
         max_tokens: 1000,
-        temperature: 0.3,
+        temperature: 0.7,
     };
     const response = await fetch(API_ENDPOINT, {
         method: 'POST',

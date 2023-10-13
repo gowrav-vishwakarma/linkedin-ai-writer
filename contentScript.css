@@ -32,3 +32,15 @@ button.my-extension-btn.to-professional {
     cursor: pointer;
     padding: 3px 10px;
 }
+
+.prompt-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.prompt-item input,
+.prompt-item textarea,
+.prompt-item select {
+  margin-right: 10px;
+}

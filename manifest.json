@@ -27,6 +27,8 @@
       "16": "icon.png"
     },
     "default_title": "My Extension",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_width": 800,
+    "default_height": 600
   }
 }

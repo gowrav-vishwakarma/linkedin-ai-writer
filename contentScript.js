@@ -18,9 +18,13 @@ function createIcon(editingBox) {
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'my-extension-icon-wrapper';
 
+        // console.log('Prompts:', prompts);
+
 
     // Dynamically create buttons based on prompts
     prompts.forEach(prompt => {
+
+        if (!prompt) return;
         // // If the prompt is for a comment and there's no commentary, skip this iteration
         // if (prompt.position === 'comment' && commentary === false) {
         //     return;
@@ -30,6 +34,7 @@ function createIcon(editingBox) {
         // if (prompt.position === 'new_post' && commentary !== false) {
         //     return;
         // }
+
 
         const {isNewPost} = getTextFromCommentary(editingBox);
 
@@ -55,6 +60,7 @@ function createIcon(editingBox) {
             promptText = promptText.replace(/\$post/g, postContent);
             promptText = promptText.replace(/\$comment/g, commentContent);
             console.log('Prompt text:', promptText);
+            editingBox.innerText = "Working...\n "+promptText;
             const response = await sendMessageToOpenAI(promptText);
             if (prompt.replaceText) {
                 editingBox.innerText = response;

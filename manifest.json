@@ -1,6 +1,6 @@
 {
   "name": "My AI Writer for LinkedIn",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Autocomplete text with OpenAI GPT-3",
   "update_url": "https://epan.in/extensions/linkedin-responder/updates.xml",
   "manifest_version": 3,

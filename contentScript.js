@@ -13,6 +13,137 @@ chrome.storage.local.get('chrome_openai_prompts', (data) => {
     }
 });
 
+// Media capture functionality
+async function captureMediaFromPost(postElement) {
+    const mediaElements = [];
+    const processedUrls = new Set(); // Track processed URLs to avoid duplicates
+    
+    // Look for images in various LinkedIn post structures
+    const imageSelectors = [
+        '.feed-shared-image img',
+        '.feed-shared-image__image img',
+        '.carousel-image img',
+        '.feed-shared-carousel img',
+        '.feed-shared-video img',
+        '.feed-shared-document img',
+        '.attachments img',
+        '.update-components-image img',
+        '.update-components-image__image img',
+        '.feed-shared-update-v2__content img',
+        '.ivm-view-attr__img--centered',
+        '.update-components-image__container img'
+    ];
+    
+    console.log('🔍 Searching for media in post element:', postElement);
+    
+    for (const selector of imageSelectors) {
+        const images = postElement.querySelectorAll(selector);
+        console.log(`🔍 Selector "${selector}" found ${images.length} images`);
+        
+        for (const img of images) {
+            // Skip if already processed
+            if (processedUrls.has(img.src)) {
+                console.log('⏭️ Skipping duplicate image:', img.src);
+                continue;
+            }
+            
+            // Skip profile pictures and small icons
+            if (img.width < 100 || img.height < 100) {
+                console.log('⏭️ Skipping small image:', img.src, `(${img.width}x${img.height})`);
+                continue;
+            }
+            
+            // Skip if it's a profile picture or icon
+            if (img.src.includes('profile-displayphoto') || img.src.includes('EntityPhoto')) {
+                console.log('⏭️ Skipping profile picture:', img.src);
+                continue;
+            }
+            
+            try {
+                console.log('📷 Processing image:', img.src, `(${img.width}x${img.height})`);
+                const dataUrl = await imageToDataUrl(img.src);
+                if (dataUrl) {
+                    mediaElements.push({
+                        type: 'image/jpeg',
+                        dataUrl: dataUrl,
+                        src: img.src
+                    });
+                    processedUrls.add(img.src); // Mark as processed
+                    console.log('✅ Successfully captured image:', img.src);
+                }
+            } catch (error) {
+                console.warn('❌ Failed to capture image:', img.src, error);
+            }
+        }
+    }
+    
+    console.log(`📷 Total media elements captured: ${mediaElements.length}`);
+    return mediaElements;
+}
+
+async function imageToDataUrl(imageSrc) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        img.onload = function() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas dimensions
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                
+                // Draw image to canvas
+                ctx.drawImage(img, 0, 0);
+                
+                // Convert to data URL
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataUrl);
+            } catch (error) {
+                reject(error);
+            }
+        };
+        
+        img.onerror = function() {
+            reject(new Error('Failed to load image'));
+        };
+        
+        img.src = imageSrc;
+    });
+}
+
+function hasMediaInPost(postElement) {
+    const mediaSelectors = [
+        '.feed-shared-image',
+        '.feed-shared-image__image',
+        '.carousel-image',
+        '.feed-shared-carousel',
+        '.feed-shared-video',
+        '.feed-shared-document',
+        '.attachments',
+        '.update-components-image',
+        '.update-components-image__image',
+        '.feed-shared-update-v2__content',
+        '.ivm-view-attr__img--centered',
+        '.update-components-image__container'
+    ];
+    
+    console.log('🔍 Checking for media in post element:', postElement);
+    
+    for (const selector of mediaSelectors) {
+        const element = postElement.querySelector(selector);
+        if (element) {
+            console.log(`✅ Found media container with selector: ${selector}`, element);
+            return true;
+        }
+    }
+    
+    console.log('❌ No media containers found in post');
+    return false;
+}
+
 
 function createIcon(editingBox) {
     const iconWrapper = document.createElement('div');
@@ -52,19 +183,52 @@ function createIcon(editingBox) {
         btn.className = 'my-extension-btn';
         btn.addEventListener('click', async (event) => {
             event.preventDefault();
-            const {editingBoxText, commentContent, postContent} = getTextFromCommentary(editingBox);
+            const {editingBoxText, commentContent, postContent, mediaContent} = getTextFromCommentary(editingBox);
             console.log('editingBoxText:', editingBoxText, 'postContent:', postContent, 'commentContent:', commentContent);
-            console.log('Full context object:', {editingBoxText, commentContent, postContent});
+            console.log('Full context object:', {editingBoxText, commentContent, postContent, mediaContent});
+            
+            // Capture media from the post if we're commenting on a post with media
+            let capturedMedia = null;
+            if (!editingBox.closest(SHARE_BOX_CLASS)) { // Not a new post
+                const parentWrapper = editingBox.parentElement.closest(PARENT_WRAPPER_CLASS);
+                if (parentWrapper && hasMediaInPost(parentWrapper)) {
+                    console.log('Capturing media from post...');
+                    try {
+                        capturedMedia = await captureMediaFromPost(parentWrapper);
+                        console.log('Captured media:', capturedMedia);
+                    } catch (error) {
+                        console.warn('Failed to capture media:', error);
+                    }
+                }
+            }
+            
             let promptText = prompt.text;
             console.log('Prompt text before:', promptText);
             promptText = promptText.replace(/\$text/g, editingBoxText);
             promptText = promptText.replace(/\$post/g, postContent);
             promptText = promptText.replace(/\$comment/g, commentContent);
+            
+            // If we captured images, prepend guidance to consider images as context
+            if (capturedMedia && capturedMedia.length > 0) {
+                const visionPrefix = 'You are a vision-capable assistant. Consider the attached image(s) as context when composing the response. Refer to elements visible in the image(s) when helpful.\n\n';
+                promptText = visionPrefix + promptText;
+            }
+            
             console.log('Prompt text:', promptText);
-            editingBox.innerText = "Working...\n "+promptText;
+            
+            // Show media indicator if media was captured
+            const mediaIndicator = capturedMedia && capturedMedia.length > 0 ? 
+                `\n📷 Processing ${capturedMedia.length} image(s)...\n` : '';
+            editingBox.innerText = "Working..." + mediaIndicator + promptText;
             
             try {
-                const response = await sendMessageToAI(promptText);
+                console.log('🚀 Sending to AI with media:', {
+                    promptText,
+                    mediaCount: capturedMedia ? capturedMedia.length : 0,
+                    mediaContent: capturedMedia
+                });
+                
+                const response = await sendMessageToAI(promptText, capturedMedia);
                 if (prompt.replaceText) {
                     editingBox.innerText = response;
                 } else {
@@ -126,7 +290,8 @@ function getTextFromCommentary(editingBox) {
             isNewPost: true,
             editingBoxText: editingBox.innerText.trim(),
             postContent: '',
-            commentContent: ''
+            commentContent: '',
+            mediaContent: null
         };
     }
 
@@ -137,7 +302,8 @@ function getTextFromCommentary(editingBox) {
             isNewPost: false,
             editingBoxText: editingBox.innerText.trim(),
             postContent: '',
-            commentContent: ''
+            commentContent: '',
+            mediaContent: null
         };
     }
 
@@ -206,7 +372,8 @@ function getTextFromCommentary(editingBox) {
                 isNewPost: false,
                 editingBoxText: editingBox.innerText.trim(),
                 postContent: commentaryText,
-                commentContent: commentContent
+                commentContent: commentContent,
+                mediaContent: null
             };
         } else {
             console.log('No parent comment found');
@@ -221,7 +388,8 @@ function getTextFromCommentary(editingBox) {
             isNewPost: false,
             editingBoxText: editingBox.innerText.trim(),
             postContent: commentaryText,
-            commentContent: ''
+            commentContent: '',
+            mediaContent: null
         };
     }
 
@@ -233,7 +401,8 @@ function getTextFromCommentary(editingBox) {
         isNewPost: false,
         editingBoxText: editingBox.innerText.trim(),
         postContent: commentaryText,
-        commentContent: commentContent
+        commentContent: commentContent,
+        mediaContent: null
     };
 }
 
@@ -261,10 +430,13 @@ function handleMutation(mutationsList, observer) {
     // }
 }
 
-async function sendMessageToAI(prompt) {
+async function sendMessageToAI(prompt, mediaContent = null) {
     try {
         // Get current provider configuration
         const config = await ProviderManager.getProviderConfig();
+        
+        console.log('🔧 Provider config:', config);
+        console.log('📷 Media content being sent:', mediaContent);
         
         // Send request using the configured provider
         const response = await ProviderManager.sendRequest(prompt, config.provider, {
@@ -272,7 +444,7 @@ async function sendMessageToAI(prompt) {
             maxTokens: config.maxTokens,
             temperature: config.temperature,
             customEndpoint: config.customEndpoint
-        });
+        }, mediaContent);
         
         return response;
     } catch (error) {

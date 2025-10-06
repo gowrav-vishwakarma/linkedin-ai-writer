@@ -74,6 +74,18 @@ const DEFAULT_PROMPTS = [
         text: 'Translate this content to Hindi. Just give me the Hindi translation to copy-paste, no explanations.\n\nContent: $post',
         replaceText: false,
     },
+    {
+        label: 'Analyze Image',
+        position: 'comment',
+        text: 'Analyze the image(s) in this LinkedIn post and write a professional comment that adds value based on what you see. Be insightful and relevant to the visual content. Just give me the comment text to copy-paste, no explanations.\n\nPost: $post',
+        replaceText: true,
+    },
+    {
+        label: 'Image Insights',
+        position: 'comment',
+        text: 'Look at the image(s) in this post and provide a thoughtful comment that offers insights, asks relevant questions, or adds professional value based on the visual content. Keep it 2-3 lines. Just give me the comment text to copy-paste, no explanations.\n\nPost: $post',
+        replaceText: true,
+    },
 ];
 
 // DOM elements

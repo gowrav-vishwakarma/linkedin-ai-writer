@@ -8,6 +8,9 @@
     "storage",
     "activeTab"
   ],
+  "host_permissions": [
+    "*://*.linkedin.com/*"
+  ],
   "content_scripts": [
     {
       "matches": [

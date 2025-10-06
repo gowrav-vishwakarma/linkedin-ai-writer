@@ -94,6 +94,18 @@
 
     <h2 class="text-center mt-5">Manage Prompts:</h2>
 
+    <div class="alert alert-info">
+        <h5>📷 Media Support Added!</h5>
+        <p class="mb-2">The extension now supports vision models that can analyze images from LinkedIn posts:</p>
+        <ul class="mb-2">
+            <li><strong>OpenAI:</strong> gpt-4o, gpt-4-vision-preview</li>
+            <li><strong>Anthropic:</strong> claude-3-5-sonnet-20241022, claude-3-opus-20240229</li>
+            <li><strong>Ollama (Local):</strong> llava:7b/13b/34b, llama3.2-vision:3b/11b, qwen2.5-vl:3b/7b</li>
+            <li><strong>LM Studio (Local):</strong> qwen2.5-vl-7b/3b, llava-7b/13b/34b</li>
+        </ul>
+        <p class="mb-0">When commenting on posts with images, the AI will automatically analyze the visual content along with the text!</p>
+    </div>
+    
     <p class="text-muted">
         In your prompts, you can use the following placeholders:
         <ul>
@@ -102,6 +114,8 @@
             <li><code>$comment</code> - The content of the comment you're replying to.</li>
         </ul>
         These placeholders will be replaced with the actual content when generating the response.
+        <br><br>
+        <strong>Note:</strong> When using vision models, images from the original post will be automatically included in the analysis.
     </p>
     <div id="prompts-container" class="mt-3">
         <table class="table table-bordered">

@@ -1,3 +1,4 @@
+// Default prompts configuration
 const DEFAULT_PROMPTS = [
     {
         label: '$ _',
@@ -75,25 +76,215 @@ const DEFAULT_PROMPTS = [
     },
 ];
 
-chrome.storage.local.get('chrome_openai_prompts', (data) => {
-    console.log('got data from local', data);
-    if (!data.chrome_openai_prompts || data.chrome_openai_prompts.length === 0) {
-        chrome.storage.local.set({chrome_openai_prompts: DEFAULT_PROMPTS}, () => {
-            // After setting the default prompts, load them into the UI
-            DEFAULT_PROMPTS.forEach(createPromptUI);
-        });
-    } else {
-        // If prompts already exist, load them into the UI
-        data.chrome_openai_prompts.forEach(createPromptUI);
-    }
+// DOM elements
+const providerSelect = document.getElementById('provider-select');
+const apiKeyInput = document.getElementById('api-key');
+const modelSelect = document.getElementById('model-select');
+const customEndpointInput = document.getElementById('custom-endpoint');
+const maxTokensInput = document.getElementById('max-tokens');
+const temperatureInput = document.getElementById('temperature');
+const temperatureValue = document.getElementById('temperature-value');
+const providerForm = document.getElementById('provider-form');
+const testConnectionBtn = document.getElementById('test-connection');
+const connectionStatus = document.getElementById('connection-status');
+const statusText = document.getElementById('status-text');
+const apiKeyHelp = document.getElementById('api-key-help');
+
+// Initialize the popup
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeProviderConfig();
+    await initializePrompts();
+    setupEventListeners();
 });
 
-const promptsContainer = document.getElementById('prompts-container');
+// Initialize provider configuration
+async function initializeProviderConfig() {
+    try {
+        const config = await ProviderManager.getProviderConfig();
+        
+        // Set provider
+        providerSelect.value = config.provider || 'openai';
+        
+        // Load API key for current provider
+        const apiKey = await ProviderManager.getAPIKey(config.provider || 'openai');
+        apiKeyInput.value = apiKey;
+        
+        // Set other config values
+        modelSelect.value = config.model || '';
+        customEndpointInput.value = config.customEndpoint || '';
+        maxTokensInput.value = config.maxTokens || 1000;
+        temperatureInput.value = config.temperature || 0.7;
+        temperatureValue.textContent = config.temperature || 0.7;
+        
+        // Update UI based on provider
+        updateProviderUI(config.provider || 'openai');
+        
+    } catch (error) {
+        console.error('Error initializing provider config:', error);
+    }
+}
 
-const promptsTbody = document.getElementById('prompts-tbody');
+// Initialize prompts
+async function initializePrompts() {
+    try {
+        const data = await new Promise((resolve) => {
+            chrome.storage.local.get('chrome_openai_prompts', resolve);
+        });
+        
+        if (!data.chrome_openai_prompts || data.chrome_openai_prompts.length === 0) {
+            await new Promise((resolve) => {
+                chrome.storage.local.set({chrome_openai_prompts: DEFAULT_PROMPTS}, resolve);
+            });
+            DEFAULT_PROMPTS.forEach(createPromptUI);
+        } else {
+            data.chrome_openai_prompts.forEach(createPromptUI);
+        }
+    } catch (error) {
+        console.error('Error initializing prompts:', error);
+    }
+}
 
+// Setup event listeners
+function setupEventListeners() {
+    // Provider selection change
+    providerSelect.addEventListener('change', async (e) => {
+        const provider = e.target.value;
+        await updateProviderUI(provider);
+        
+        // Load API key for new provider
+        const apiKey = await ProviderManager.getAPIKey(provider);
+        apiKeyInput.value = apiKey;
+    });
+    
+    // Temperature slider
+    temperatureInput.addEventListener('input', (e) => {
+        temperatureValue.textContent = e.target.value;
+    });
+    
+    // Form submission
+    providerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveProviderConfig();
+    });
+    
+    // Test connection
+    testConnectionBtn.addEventListener('click', async () => {
+        await testConnection();
+    });
+    
+    // Add prompt button
+    document.getElementById('add-prompt').addEventListener('click', () => {
+        createPromptUI({label: '', position: 'new_post', text: '', replaceText: false});
+    });
+    
+    // Save prompts button
+    document.getElementById('save-prompts').addEventListener('click', () => {
+        savePrompts();
+    });
+}
+
+// Update UI based on selected provider
+async function updateProviderUI(provider) {
+    const providerInfo = ProviderManager.getProvider(provider);
+    if (!providerInfo) return;
+    
+    // Update API key help text
+    if (providerInfo.authType === 'none') {
+        apiKeyHelp.textContent = 'No API key required for local providers';
+        apiKeyInput.placeholder = 'No API key needed';
+        apiKeyInput.disabled = true;
+    } else {
+        apiKeyHelp.textContent = `Required for ${providerInfo.name}`;
+        apiKeyInput.placeholder = 'Enter your API key';
+        apiKeyInput.disabled = false;
+    }
+    
+    // Update model options
+    modelSelect.innerHTML = '<option value="">Use default model</option>';
+    providerInfo.models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        modelSelect.appendChild(option);
+    });
+    
+    // Update custom endpoint placeholder
+    customEndpointInput.placeholder = providerInfo.endpoint;
+}
+
+// Save provider configuration
+async function saveProviderConfig() {
+    try {
+        const config = {
+            provider: providerSelect.value,
+            apiKey: apiKeyInput.value.trim(),
+            model: modelSelect.value,
+            customEndpoint: customEndpointInput.value.trim(),
+            maxTokens: parseInt(maxTokensInput.value),
+            temperature: parseFloat(temperatureInput.value)
+        };
+        
+        // Save provider config
+        await ProviderManager.saveProviderConfig(config);
+        
+        // Save API key separately
+        await ProviderManager.saveAPIKey(config.provider, config.apiKey);
+        
+        showStatus('Configuration saved successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error saving provider config:', error);
+        showStatus('Error saving configuration: ' + error.message, 'danger');
+    }
+}
+
+// Test connection to provider
+async function testConnection() {
+    try {
+        testConnectionBtn.disabled = true;
+        testConnectionBtn.textContent = 'Testing...';
+        showStatus('Testing connection...', 'info');
+        
+        const config = {
+            provider: providerSelect.value,
+            apiKey: apiKeyInput.value.trim(),
+            model: modelSelect.value,
+            customEndpoint: customEndpointInput.value.trim(),
+            maxTokens: parseInt(maxTokensInput.value),
+            temperature: parseFloat(temperatureInput.value)
+        };
+        
+        // Test with a simple prompt
+        const testPrompt = "Hello, this is a test message. Please respond with 'Connection successful!'";
+        const response = await ProviderManager.sendRequest(testPrompt, config.provider, config);
+        
+        showStatus(`Connection successful! Response: ${response}`, 'success');
+        
+    } catch (error) {
+        console.error('Connection test failed:', error);
+        showStatus(`Connection failed: ${error.message}`, 'danger');
+    } finally {
+        testConnectionBtn.disabled = false;
+        testConnectionBtn.textContent = 'Test Connection';
+    }
+}
+
+// Show status message
+function showStatus(message, type) {
+    statusText.textContent = message;
+    connectionStatus.className = `mt-3 alert alert-${type}`;
+    connectionStatus.style.display = 'block';
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        connectionStatus.style.display = 'none';
+    }, 5000);
+}
+
+// Create prompt UI (existing function)
 function createPromptUI(prompt) {
     if (!prompt) return;
+    const promptsTbody = document.getElementById('prompts-tbody');
     const tr = document.createElement('tr');
 
     const tdPosition = document.createElement('td');
@@ -145,13 +336,9 @@ function createPromptUI(prompt) {
     promptsTbody.appendChild(tr);
 }
 
-
-document.getElementById('add-prompt').addEventListener('click', () => {
-    createPromptUI({label: '', position: 'new_post', text: '', replaceText: false});
-});
-
-
-document.getElementById('save-prompts').addEventListener('click', () => {
+// Save prompts (existing function)
+function savePrompts() {
+    const promptsTbody = document.getElementById('prompts-tbody');
     const prompts = Array.from(promptsTbody.children).map(tr => {
         return {
             label: tr.querySelector('input').value,
@@ -161,38 +348,11 @@ document.getElementById('save-prompts').addEventListener('click', () => {
         };
     });
 
-
     if (prompts.length === 0) {
         chrome.storage.local.set({chrome_openai_prompts: DEFAULT_PROMPTS});
     } else {
         chrome.storage.local.set({chrome_openai_prompts: prompts});
-
     }
-
-});
-
-
-const apiKeyInput = document.getElementById('api-key');
-console.log('apiKeyInput', apiKeyInput); // log the apiKeyInput to verify it exists
-
-// Load the stored API key and fill the input field
-chrome.storage.local.get('chrome_openai_apiKey', (data) => {
-    console.log(data); // log the data to see if the key is being properly loaded
-    if (data.chrome_openai_apiKey) {
-        apiKeyInput.value = data.chrome_openai_apiKey;
-    }
-});
-
-// Handle form submission
-const form = document.querySelector('form');
-const submitBtn = document.querySelector('button[type=\'submit\']');
-submitBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-
-    // Save the API key to storage
-    const apiKey = apiKeyInput.value.trim();
-    console.log('here saving', apiKey, 'to storage');
-    chrome.storage.local.set({chrome_openai_apiKey: apiKey}, () => {
-        console.log('API key saved:', apiKey);
-    });
-});
+    
+    showStatus('Prompts saved successfully!', 'success');
+}

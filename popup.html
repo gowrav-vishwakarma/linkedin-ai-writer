@@ -10,20 +10,86 @@
 
 <body class="bg-light" style="width: 800px">
 <div class="container mt-5">
-    <h2 class="text-center">Please enter your OpenAI API key:</h2>
-    <form class="mt-4">
+    <h2 class="text-center">AI Provider Configuration</h2>
+    <form class="mt-4" id="provider-form">
         <div class="row">
-            <div class="col-md-9">
+            <div class="col-md-12">
                 <div class="form-group">
-                    <label for="api-key">API Key:</label>
-                    <input type="text" id="api-key" name="api-key" class="form-control"/>
+                    <label for="provider-select">AI Provider:</label>
+                    <select id="provider-select" class="form-control" required>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="lmstudio">LM Studio (Local)</option>
+                        <option value="groq">Groq</option>
+                        <option value="together">Together AI</option>
+                    </select>
                 </div>
             </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary mt-4">Submit</button>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="api-key">API Key:</label>
+                    <input type="password" id="api-key" name="api-key" class="form-control" placeholder="Enter your API key"/>
+                    <small class="form-text text-muted" id="api-key-help">
+                        Required for OpenAI, Anthropic, Groq, and Together AI
+                    </small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="model-select">Model:</label>
+                    <select id="model-select" class="form-control">
+                        <option value="">Use default model</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="custom-endpoint">Custom Endpoint (Optional):</label>
+                    <input type="url" id="custom-endpoint" class="form-control" placeholder="http://localhost:11434/api/generate"/>
+                    <small class="form-text text-muted">
+                        Override the default endpoint for this provider
+                    </small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="max-tokens">Max Tokens:</label>
+                    <input type="number" id="max-tokens" class="form-control" min="1" max="4000" value="1000"/>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="temperature">Temperature:</label>
+                    <input type="range" id="temperature" class="form-control-range" min="0" max="2" step="0.1" value="0.7"/>
+                    <small class="form-text text-muted">
+                        <span id="temperature-value">0.7</span> (0 = deterministic, 2 = creative)
+                    </small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary mt-4">Save Configuration</button>
+                    <button type="button" id="test-connection" class="btn btn-info mt-4 ml-2">Test Connection</button>
+                </div>
             </div>
         </div>
     </form>
+    
+    <div id="connection-status" class="mt-3" style="display: none;">
+        <div class="alert alert-info">
+            <strong>Connection Status:</strong> <span id="status-text"></span>
+        </div>
+    </div>
 
 
     <h2 class="text-center mt-5">Manage Prompts:</h2>
@@ -64,6 +130,7 @@
     <br/>
     Fork and update this useless tool ;) <a href="https://github.com/gowrav-vishwakarma/linkedin-ai-writer.git">Github</a>
 </div>
+<script src="providers.js"></script>
 <script src="popup.js"></script>
 </body>
 

@@ -61,11 +61,20 @@ function createIcon(editingBox) {
             promptText = promptText.replace(/\$comment/g, commentContent);
             console.log('Prompt text:', promptText);
             editingBox.innerText = "Working...\n "+promptText;
-            const response = await sendMessageToOpenAI(promptText);
-            if (prompt.replaceText) {
-                editingBox.innerText = response;
-            } else {
-                alert(response);
+            
+            try {
+                const response = await sendMessageToAI(promptText);
+                if (prompt.replaceText) {
+                    editingBox.innerText = response;
+                } else {
+                    alert(response);
+                }
+            } catch (error) {
+                console.error('Error generating AI response:', error);
+                editingBox.innerText = "Error: " + error.message + "\n\nOriginal text:\n" + editingBoxText;
+                
+                // Show error alert
+                alert(`AI Error: ${error.message}\n\nPlease check your provider configuration in the extension popup.`);
             }
         });
         iconWrapper.appendChild(btn);
@@ -175,46 +184,26 @@ function handleMutation(mutationsList, observer) {
     // }
 }
 
-async function sendMessageToOpenAI(prompt) {
-    const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
-    const API_KEY = await getAPIKey();
-
-    const data = {
-        model: 'gpt-3.5-turbo',
-        messages: [{'role': 'user', 'content': prompt}],
-        max_tokens: 1000,
-        temperature: 0.7,
-    };
-    const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${API_KEY}`,
-        },
-        body: JSON.stringify(data),
-    });
-    const json = await response.json();
-    if (json.choices && json.choices.length > 0) {
-        const message = json.choices[0].message.content;
-        return message.trim();
-    } else {
-        throw new Error('No response from OpenAI API');
+async function sendMessageToAI(prompt) {
+    try {
+        // Get current provider configuration
+        const config = await ProviderManager.getProviderConfig();
+        
+        // Send request using the configured provider
+        const response = await ProviderManager.sendRequest(prompt, config.provider, {
+            model: config.model,
+            maxTokens: config.maxTokens,
+            temperature: config.temperature,
+            customEndpoint: config.customEndpoint
+        });
+        
+        return response;
+    } catch (error) {
+        console.error('Error sending message to AI:', error);
+        throw error;
     }
 }
 
-async function getAPIKey() {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.get('chrome_openai_apiKey', function (data) {
-            console.log('Retrieved data from storage:', data);
-            const apiKey = data.chrome_openai_apiKey;
-            if (apiKey) {
-                resolve(apiKey);
-            } else {
-                reject(new Error('API key not found'));
-            }
-        });
-    });
-}
 
 // Attach the MutationObserver to the document body
 const observer = new MutationObserver(handleMutation);

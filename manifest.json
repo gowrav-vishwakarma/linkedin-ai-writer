@@ -1,7 +1,7 @@
 {
   "name": "My AI Writer for LinkedIn",
   "version": "3.0.0",
-  "description": "Autocomplete text with OpenAI GPT-3",
+  "description": "AI-powered LinkedIn content writer supporting multiple providers (OpenAI, Anthropic, Ollama, LM Studio, Groq, Together AI)",
   "update_url": "https://epan.in/extensions/linkedin-responder/updates.xml",
   "manifest_version": 3,
   "permissions": [
@@ -14,6 +14,7 @@
         "*://*.linkedin.com/*"
       ],
       "js": [
+        "providers.js",
         "contentScript.js"
       ],
       "css": [

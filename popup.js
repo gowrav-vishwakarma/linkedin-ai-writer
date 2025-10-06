@@ -105,19 +105,19 @@ async function initializeProviderConfig() {
         // Set provider
         providerSelect.value = config.provider || 'openai';
         
+        // Update UI based on provider FIRST (this rebuilds model options)
+        updateProviderUI(config.provider || 'openai');
+        
         // Load API key for current provider
         const apiKey = await ProviderManager.getAPIKey(config.provider || 'openai');
         apiKeyInput.value = apiKey;
         
-        // Set other config values
+        // Set other config values AFTER UI is updated
         modelSelect.value = config.model || '';
         customEndpointInput.value = config.customEndpoint || '';
         maxTokensInput.value = config.maxTokens || 1000;
         temperatureInput.value = config.temperature || 0.7;
         temperatureValue.textContent = config.temperature || 0.7;
-        
-        // Update UI based on provider
-        updateProviderUI(config.provider || 'openai');
         
     } catch (error) {
         console.error('Error initializing provider config:', error);
@@ -154,6 +154,9 @@ function setupEventListeners() {
         // Load API key for new provider
         const apiKey = await ProviderManager.getAPIKey(provider);
         apiKeyInput.value = apiKey;
+        
+        // Reset model selection when provider changes
+        modelSelect.value = '';
     });
     
     // Temperature slider

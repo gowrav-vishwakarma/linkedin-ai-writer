@@ -269,7 +269,8 @@ const DEFAULT_PROVIDER_CONFIG = {
     model: '',
     maxTokens: 1000,
     temperature: 0.7,
-    customEndpoint: ''
+    customEndpoint: '',
+    supportsMedia: true
 };
 
 // Storage keys

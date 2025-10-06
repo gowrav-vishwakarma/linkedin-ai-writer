@@ -125,6 +125,7 @@ const testConnectionBtn = document.getElementById('test-connection');
 const connectionStatus = document.getElementById('connection-status');
 const statusText = document.getElementById('status-text');
 const apiKeyHelp = document.getElementById('api-key-help');
+const supportsMediaCheckbox = document.getElementById('supports-media');
 
 // Initialize the popup
 document.addEventListener('DOMContentLoaded', async () => {
@@ -154,6 +155,7 @@ async function initializeProviderConfig() {
         maxTokensInput.value = config.maxTokens || 1000;
         temperatureInput.value = config.temperature || 0.7;
         temperatureValue.textContent = config.temperature || 0.7;
+        supportsMediaCheckbox.checked = (config.supportsMedia !== false);
         
     } catch (error) {
         console.error('Error initializing provider config:', error);
@@ -260,7 +262,8 @@ async function saveProviderConfig() {
             model: modelSelect.value,
             customEndpoint: customEndpointInput.value.trim(),
             maxTokens: parseInt(maxTokensInput.value),
-            temperature: parseFloat(temperatureInput.value)
+            temperature: parseFloat(temperatureInput.value),
+            supportsMedia: supportsMediaCheckbox.checked
         };
         
         // Save provider config

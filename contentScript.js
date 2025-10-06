@@ -425,12 +425,14 @@ function hasMediaInPost(postElement) {
 }
 
 
-function createIcon(editingBox) {
+async function createIcon(editingBox) {
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'my-extension-icon-wrapper';
 
         // console.log('Prompts:', prompts);
 
+    // Get provider config to check media support
+    const providerConfig = await ProviderManager.getProviderConfig();
 
     // Dynamically create buttons based on prompts
     prompts.forEach(prompt => {
@@ -446,6 +448,14 @@ function createIcon(editingBox) {
         //     return;
         // }
 
+        // Skip media-related prompts if provider doesn't support media
+        if (providerConfig.supportsMedia === false) {
+            const mediaRelatedPrompts = ['Analyze Image', 'Image Insights', 'Video Analysis', 'Video Insights', 'Document Analysis', 'Document Insights'];
+            if (mediaRelatedPrompts.includes(prompt.label)) {
+                console.log('🛑 Skipping media-related prompt:', prompt.label, 'because provider does not support media');
+                return;
+            }
+        }
 
         const {isNewPost} = getTextFromCommentary(editingBox);
 
@@ -467,19 +477,24 @@ function createIcon(editingBox) {
             console.log('editingBoxText:', editingBoxText, 'postContent:', postContent, 'commentContent:', commentContent);
             console.log('Full context object:', {editingBoxText, commentContent, postContent, mediaContent});
             
-            // Capture media from the post if we're commenting on a post with media
+            // Capture media from the post only if provider supports media
+            const providerConfig = await ProviderManager.getProviderConfig();
             let capturedMedia = null;
-            if (!editingBox.closest(SHARE_BOX_CLASS)) { // Not a new post
-                const parentWrapper = editingBox.parentElement.closest(PARENT_WRAPPER_CLASS);
-                if (parentWrapper && hasMediaInPost(parentWrapper)) {
-                    console.log('Capturing media from post...');
-                    try {
-                        capturedMedia = await captureMediaFromPost(parentWrapper);
-                        console.log('Captured media:', capturedMedia);
-                    } catch (error) {
-                        console.warn('Failed to capture media:', error);
+            if (providerConfig.supportsMedia !== false) {
+                if (!editingBox.closest(SHARE_BOX_CLASS)) { // Not a new post
+                    const parentWrapper = editingBox.parentElement.closest(PARENT_WRAPPER_CLASS);
+                    if (parentWrapper && hasMediaInPost(parentWrapper)) {
+                        console.log('Capturing media from post...');
+                        try {
+                            capturedMedia = await captureMediaFromPost(parentWrapper);
+                            console.log('Captured media:', capturedMedia);
+                        } catch (error) {
+                            console.warn('Failed to capture media:', error);
+                        }
                     }
                 }
+            } else {
+                console.log('🛑 Provider does not support media. Skipping media capture.');
             }
             
             let promptText = prompt.text;
@@ -489,7 +504,7 @@ function createIcon(editingBox) {
             promptText = promptText.replace(/\$comment/g, commentContent);
             
             // If we captured media, prepend guidance to consider media as context
-            if (capturedMedia && capturedMedia.length > 0) {
+            if (providerConfig.supportsMedia !== false && capturedMedia && capturedMedia.length > 0) {
                 const hasVideoFrames = capturedMedia.some(media => media.timestamp !== undefined);
                 const hasImages = capturedMedia.some(media => media.timestamp === undefined && !media.isDocument);
                 const hasDocuments = capturedMedia.some(media => media.isDocument);
@@ -528,7 +543,7 @@ function createIcon(editingBox) {
             
             // Show media indicator if media was captured
             let mediaIndicator = '';
-            if (capturedMedia && capturedMedia.length > 0) {
+            if (providerConfig.supportsMedia !== false && capturedMedia && capturedMedia.length > 0) {
                 const imageCount = capturedMedia.filter(media => media.timestamp === undefined && !media.isDocument).length;
                 const videoFrameCount = capturedMedia.filter(media => media.timestamp !== undefined).length;
                 const documentCount = capturedMedia.filter(media => media.isDocument).length;
@@ -552,7 +567,7 @@ function createIcon(editingBox) {
                 });
                 
                 // Only send actual images to the provider (filter out document metadata and non-image types)
-                const imageOnlyMedia = (capturedMedia || []).filter(m => m.type && m.type.startsWith('image/'));
+                const imageOnlyMedia = (providerConfig.supportsMedia !== false) ? (capturedMedia || []).filter(m => m.type && m.type.startsWith('image/')) : null;
                 const response = await sendMessageToAI(promptText, imageOnlyMedia);
                 if (prompt.replaceText) {
                     editingBox.innerText = response;
@@ -740,7 +755,9 @@ function handleMutation(mutationsList, observer) {
             return Array.from(mutation.addedNodes).some((node) => {
                 // use some instead of forEach
                 if (node.querySelector && node.querySelector('.ql-editor')) {
-                    createIcon(node.querySelector('.ql-editor'));
+                    createIcon(node.querySelector('.ql-editor')).catch(error => {
+                        console.warn('Error creating icon:', error);
+                    });
                     iconCreated = true; // set flag to true when icon is created
                     return true; // break inner some loop
                 }

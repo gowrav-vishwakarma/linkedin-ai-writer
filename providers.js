@@ -105,7 +105,7 @@ const PROVIDERS = {
         name: 'Ollama (Local)',
         endpoint: 'http://localhost:11434/api/generate',
         authType: 'none',
-        models: ['llama2', 'codellama', 'mistral', 'neural-chat', 'starling-lm', 'llava:7b', 'llava:13b', 'llava:34b', 'llama3.2-vision:11b', 'llama3.2-vision:3b', 'qwen2.5-vl:7b', 'qwen2.5-vl:3b'],
+        models: ['llama2', 'codellama', 'mistral', 'neural-chat', 'starling-lm', 'llava:7b', 'llava:13b', 'llava:34b', 'llama3.2-vision:11b', 'llama3.2-vision:3b', 'qwen2.5-vl:7b', 'qwen2.5-vl:3b', 'qwen2.5-vl-7b-instruct-gguf'],
         defaultModel: 'llama2',
         maxTokens: 4000,
         temperature: 0.7,
@@ -162,7 +162,7 @@ const PROVIDERS = {
         name: 'LM Studio (Local)',
         endpoint: 'http://localhost:1234/v1/chat/completions',
         authType: 'none',
-        models: ['local-model', 'qwen2.5-vl-7b', 'qwen2.5-vl-3b', 'llava-7b', 'llava-13b', 'llava-34b'], // LM Studio uses whatever model is loaded
+        models: ['local-model', 'qwen2.5-vl-7b', 'qwen2.5-vl-3b', 'qwen2.5-vl-7b-instruct-gguf', 'llava-7b', 'llava-13b', 'llava-34b'], // LM Studio uses whatever model is loaded
         defaultModel: 'local-model',
         maxTokens: 4000,
         temperature: 0.7,

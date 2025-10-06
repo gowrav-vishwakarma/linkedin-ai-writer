@@ -34,6 +34,14 @@ async function captureMediaFromPost(postElement) {
         '.update-components-image__container img'
     ];
     
+    // Look for video elements
+    const videoSelectors = [
+        '.update-components-linkedin-video video',
+        '.feed-shared-video video',
+        '.media-player video',
+        'video'
+    ];
+    
     console.log('🔍 Searching for media in post element:', postElement);
     
     for (const selector of imageSelectors) {
@@ -77,6 +85,56 @@ async function captureMediaFromPost(postElement) {
         }
     }
     
+    // Process video elements
+    console.log('🎥 Processing video elements...');
+    const processedVideos = new Set(); // Track processed video elements to avoid duplicates
+    
+    for (const selector of videoSelectors) {
+        const videos = postElement.querySelectorAll(selector);
+        console.log(`🎥 Selector "${selector}" found ${videos.length} videos`);
+        
+        for (const video of videos) {
+            // Skip if already processed (same video element)
+            if (processedVideos.has(video)) {
+                console.log('⏭️ Skipping duplicate video element');
+                continue;
+            }
+            
+            try {
+                console.log('🎥 Processing video:', video.src || video.currentSrc);
+                const videoFrames = await extractVideoFrames(video);
+                if (videoFrames && videoFrames.length > 0) {
+                    mediaElements.push(...videoFrames);
+                    processedVideos.add(video); // Mark as processed
+                    console.log(`✅ Successfully captured ${videoFrames.length} frames from video`);
+                } else {
+                    // Fallback: try to get video poster/thumbnail
+                    console.log('🎥 No frames extracted, trying video poster...');
+                    const posterUrl = video.poster;
+                    if (posterUrl && posterUrl !== '') {
+                        try {
+                            const posterDataUrl = await imageToDataUrl(posterUrl);
+                            if (posterDataUrl) {
+                                mediaElements.push({
+                                    type: 'image/jpeg',
+                                    dataUrl: posterDataUrl,
+                                    src: posterUrl,
+                                    isVideoPoster: true
+                                });
+                                processedVideos.add(video);
+                                console.log('✅ Successfully captured video poster');
+                            }
+                        } catch (posterError) {
+                            console.warn('❌ Failed to capture video poster:', posterError);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('❌ Failed to capture video frames:', error);
+            }
+        }
+    }
+    
     console.log(`📷 Total media elements captured: ${mediaElements.length}`);
     return mediaElements;
 }
@@ -114,6 +172,142 @@ async function imageToDataUrl(imageSrc) {
     });
 }
 
+async function extractVideoFrames(videoElement) {
+    return new Promise((resolve, reject) => {
+        try {
+            // Check if video is ready
+            if (videoElement.readyState < 2) {
+                console.log('🎥 Video not ready, waiting for metadata...');
+                
+                // Set a timeout to avoid infinite waiting
+                const timeout = setTimeout(() => {
+                    console.warn('🎥 Video metadata loading timeout, trying to extract from current state');
+                    extractFramesFromReadyVideo(videoElement).then(resolve).catch(() => {
+                        console.warn('🎥 Failed to extract frames after timeout, returning empty array');
+                        resolve([]);
+                    });
+                }, 3000); // 3 second timeout
+                
+                videoElement.addEventListener('loadedmetadata', () => {
+                    clearTimeout(timeout);
+                    extractFramesFromReadyVideo(videoElement).then(resolve).catch(() => {
+                        console.warn('🎥 Failed to extract frames after metadata loaded, returning empty array');
+                        resolve([]);
+                    });
+                }, { once: true });
+                return;
+            }
+            
+            extractFramesFromReadyVideo(videoElement).then(resolve).catch(() => {
+                console.warn('🎥 Failed to extract frames, returning empty array');
+                resolve([]);
+            });
+        } catch (error) {
+            console.warn('🎥 Error in extractVideoFrames, returning empty array:', error);
+            resolve([]);
+        }
+    });
+}
+
+async function extractFramesFromReadyVideo(videoElement) {
+    const frames = [];
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas dimensions to video dimensions
+    canvas.width = videoElement.videoWidth || videoElement.clientWidth || 640;
+    canvas.height = videoElement.videoHeight || videoElement.clientHeight || 480;
+    
+    if (canvas.width === 0 || canvas.height === 0) {
+        console.warn('🎥 Video has no dimensions, using default dimensions');
+        canvas.width = 640;
+        canvas.height = 480;
+    }
+    
+    console.log(`🎥 Video dimensions: ${canvas.width}x${canvas.height}`);
+    
+    try {
+        // Store current time
+        const originalTime = videoElement.currentTime;
+        const duration = videoElement.duration || 10; // Default to 10 seconds if duration unknown
+        
+        // Extract frames at different time points
+        const timePoints = [];
+        if (duration > 0 && !isNaN(duration)) {
+            // Extract frames at 25%, 50%, 75% of video duration
+            timePoints.push(duration * 0.25, duration * 0.5, duration * 0.75);
+        } else {
+            // If duration is unknown, try to extract from current position
+            timePoints.push(videoElement.currentTime || 0);
+        }
+        
+        console.log(`🎥 Extracting frames at time points: ${timePoints.join(', ')}s`);
+        
+        for (const timePoint of timePoints) {
+            try {
+                // Seek to time point
+                videoElement.currentTime = timePoint;
+                
+                // Wait for seek to complete
+                await new Promise((resolve) => {
+                    const onSeeked = () => {
+                        videoElement.removeEventListener('seeked', onSeeked);
+                        resolve();
+                    };
+                    videoElement.addEventListener('seeked', onSeeked);
+                    
+                    // Fallback timeout
+                    setTimeout(resolve, 100);
+                });
+                
+                // Draw current frame to canvas
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                
+                // Convert to data URL
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                
+                frames.push({
+                    type: 'image/jpeg',
+                    dataUrl: dataUrl,
+                    src: `video_frame_at_${timePoint.toFixed(2)}s`,
+                    timestamp: timePoint
+                });
+                
+                console.log(`🎥 Extracted frame at ${timePoint.toFixed(2)}s`);
+                
+            } catch (frameError) {
+                console.warn(`❌ Failed to extract frame at ${timePoint}s:`, frameError);
+            }
+        }
+        
+        // Restore original time
+        videoElement.currentTime = originalTime;
+        
+        // If no frames were extracted, try to extract from current state
+        if (frames.length === 0) {
+            console.log('🎥 No frames extracted via seeking, trying current state...');
+            try {
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                frames.push({
+                    type: 'image/jpeg',
+                    dataUrl: dataUrl,
+                    src: 'video_frame_current_state',
+                    timestamp: videoElement.currentTime
+                });
+                console.log('✅ Extracted frame from current video state');
+            } catch (fallbackError) {
+                console.warn('❌ Failed to extract frame from current state:', fallbackError);
+            }
+        }
+        
+    } catch (error) {
+        console.warn('❌ Error during frame extraction:', error);
+    }
+    
+    return frames;
+}
+
 function hasMediaInPost(postElement) {
     const mediaSelectors = [
         '.feed-shared-image',
@@ -127,7 +321,10 @@ function hasMediaInPost(postElement) {
         '.update-components-image__image',
         '.feed-shared-update-v2__content',
         '.ivm-view-attr__img--centered',
-        '.update-components-image__container'
+        '.update-components-image__container',
+        '.update-components-linkedin-video',
+        '.media-player',
+        'video'
     ];
     
     console.log('🔍 Checking for media in post element:', postElement);
@@ -208,17 +405,40 @@ function createIcon(editingBox) {
             promptText = promptText.replace(/\$post/g, postContent);
             promptText = promptText.replace(/\$comment/g, commentContent);
             
-            // If we captured images, prepend guidance to consider images as context
+            // If we captured media, prepend guidance to consider media as context
             if (capturedMedia && capturedMedia.length > 0) {
-                const visionPrefix = 'You are a vision-capable assistant. Consider the attached image(s) as context when composing the response. Refer to elements visible in the image(s) when helpful.\n\n';
+                const hasVideoFrames = capturedMedia.some(media => media.timestamp !== undefined);
+                const hasImages = capturedMedia.some(media => media.timestamp === undefined);
+                
+                let visionPrefix = 'You are a vision-capable assistant. Consider the attached media as context when composing the response. ';
+                
+                if (hasVideoFrames && hasImages) {
+                    visionPrefix += 'The media includes both images and video frames. Refer to elements visible in the media when helpful.\n\n';
+                } else if (hasVideoFrames) {
+                    visionPrefix += 'The media includes video frames extracted from a video. Analyze the visual content in these frames when composing your response.\n\n';
+                } else {
+                    visionPrefix += 'Consider the attached image(s) as context when composing the response. Refer to elements visible in the image(s) when helpful.\n\n';
+                }
+                
                 promptText = visionPrefix + promptText;
             }
             
             console.log('Prompt text:', promptText);
             
             // Show media indicator if media was captured
-            const mediaIndicator = capturedMedia && capturedMedia.length > 0 ? 
-                `\n📷 Processing ${capturedMedia.length} image(s)...\n` : '';
+            let mediaIndicator = '';
+            if (capturedMedia && capturedMedia.length > 0) {
+                const imageCount = capturedMedia.filter(media => media.timestamp === undefined).length;
+                const videoFrameCount = capturedMedia.filter(media => media.timestamp !== undefined).length;
+                
+                if (imageCount > 0 && videoFrameCount > 0) {
+                    mediaIndicator = `\n📷 Processing ${imageCount} image(s) and ${videoFrameCount} video frame(s)...\n`;
+                } else if (videoFrameCount > 0) {
+                    mediaIndicator = `\n🎥 Processing ${videoFrameCount} video frame(s)...\n`;
+                } else {
+                    mediaIndicator = `\n📷 Processing ${imageCount} image(s)...\n`;
+                }
+            }
             editingBox.innerText = "Working..." + mediaIndicator + promptText;
             
             try {

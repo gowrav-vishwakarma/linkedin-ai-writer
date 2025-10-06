@@ -86,6 +86,18 @@ const DEFAULT_PROMPTS = [
         text: 'Look at the image(s) in this post and provide a thoughtful comment that offers insights, asks relevant questions, or adds professional value based on the visual content. Keep it 2-3 lines. Just give me the comment text to copy-paste, no explanations.\n\nPost: $post',
         replaceText: true,
     },
+    {
+        label: 'Video Analysis',
+        position: 'comment',
+        text: 'Analyze the video content in this LinkedIn post and write a professional comment that adds value based on what you see in the video frames. Be insightful and relevant to the visual content. Just give me the comment text to copy-paste, no explanations.\n\nPost: $post',
+        replaceText: true,
+    },
+    {
+        label: 'Video Insights',
+        position: 'comment',
+        text: 'Look at the video frames in this post and provide a thoughtful comment that offers insights, asks relevant questions, or adds professional value based on the video content. Keep it 2-3 lines. Just give me the comment text to copy-paste, no explanations.\n\nPost: $post',
+        replaceText: true,
+    },
 ];
 
 // DOM elements

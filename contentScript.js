@@ -54,6 +54,7 @@ function createIcon(editingBox) {
             event.preventDefault();
             const {editingBoxText, commentContent, postContent} = getTextFromCommentary(editingBox);
             console.log('editingBoxText:', editingBoxText, 'postContent:', postContent, 'commentContent:', commentContent);
+            console.log('Full context object:', {editingBoxText, commentContent, postContent});
             let promptText = prompt.text;
             console.log('Prompt text before:', promptText);
             promptText = promptText.replace(/\$text/g, editingBoxText);
@@ -116,8 +117,11 @@ function removeIcon(editingBox) {
 }
 
 function getTextFromCommentary(editingBox) {
+    console.log('getTextFromCommentary called with editingBox:', editingBox);
+    
     const shareBox = editingBox.parentElement.closest(SHARE_BOX_CLASS);
     if (shareBox) {
+        console.log('Detected as new post');
         return {
             isNewPost: true,
             editingBoxText: editingBox.innerText.trim(),
@@ -128,6 +132,7 @@ function getTextFromCommentary(editingBox) {
 
     const parentWrapper = editingBox.parentElement.closest(PARENT_WRAPPER_CLASS);
     if (!parentWrapper) {
+        console.log('No parent wrapper found');
         return {
             isNewPost: false,
             editingBoxText: editingBox.innerText.trim(),
@@ -138,9 +143,80 @@ function getTextFromCommentary(editingBox) {
 
     const commentary = parentWrapper.querySelector(COMMENTARY_CLASS);
     const commentaryText = commentary ? (commentary.textContent || commentary.innerText || '').trim() : '';
+    console.log('Post content found:', commentaryText);
 
+    // Check if we're in a comment reply box
+    const isReplyBox = editingBox.closest('.comments-comment-box--reply');
+    console.log('Is reply box:', !!isReplyBox);
+    
+    if (isReplyBox) {
+        console.log('Processing reply box...');
+        
+        // Find the parent comment entity that contains the comment we're replying to
+        // The reply box is inside a comments-thread-entity, we need to find the parent comment
+        let parentComment = null;
+        
+        // Method 1: Look for the closest comment entity that's not the reply box itself
+        const allCommentEntities = parentWrapper.querySelectorAll('.comments-comment-entity');
+        console.log('Found comment entities:', allCommentEntities.length);
+        
+        for (let i = 0; i < allCommentEntities.length; i++) {
+            const commentEntity = allCommentEntities[i];
+            // Skip if this is the reply box itself
+            if (commentEntity.contains(editingBox)) {
+                continue;
+            }
+            
+            // Look for comment content in this entity
+            const commentContent = commentEntity.querySelector('.comments-comment-item__main-content, .comments-comment-item-content-body, .comments-highlighted-comment-item-content-body');
+            if (commentContent && commentContent.textContent.trim()) {
+                parentComment = commentEntity;
+                console.log('Found parent comment via method 1');
+                break;
+            }
+        }
+        
+        // Method 2: If still not found, look for the immediate previous sibling
+        if (!parentComment) {
+            console.log('Trying method 2 - looking for previous sibling...');
+            const replyThreadEntity = editingBox.closest('.comments-thread-entity');
+            if (replyThreadEntity) {
+                let currentElement = replyThreadEntity;
+                while (currentElement && !parentComment) {
+                    const prevSibling = currentElement.previousElementSibling;
+                    if (prevSibling) {
+                        const commentContent = prevSibling.querySelector('.comments-comment-item__main-content, .comments-comment-item-content-body, .comments-highlighted-comment-item-content-body');
+                        if (commentContent && commentContent.textContent.trim()) {
+                            parentComment = prevSibling;
+                            console.log('Found parent comment via method 2');
+                            break;
+                        }
+                    }
+                    currentElement = currentElement.parentElement;
+                }
+            }
+        }
+        
+        if (parentComment) {
+            const parentCommentContent = parentComment.querySelector('.comments-comment-item__main-content, .comments-comment-item-content-body, .comments-highlighted-comment-item-content-body');
+            const commentContent = parentCommentContent ? parentCommentContent.textContent.trim() : '';
+            console.log('Found comment content:', commentContent);
+            
+            return {
+                isNewPost: false,
+                editingBoxText: editingBox.innerText.trim(),
+                postContent: commentaryText,
+                commentContent: commentContent
+            };
+        } else {
+            console.log('No parent comment found');
+        }
+    }
+
+    // Check if we're directly in a comment item (for new comments)
     const commentItemContentBody = editingBox.parentElement.closest('.comments-comment-item');
     if (!commentItemContentBody) {
+        console.log('No comment item found, returning with empty comment content');
         return {
             isNewPost: false,
             editingBoxText: editingBox.innerText.trim(),
@@ -149,8 +225,9 @@ function getTextFromCommentary(editingBox) {
         };
     }
 
-    const interestedComment = commentItemContentBody.querySelector('.comments-comment-item-content-body');
+    const interestedComment = commentItemContentBody.querySelector('.comments-comment-item__main-content, .comments-comment-item-content-body, .comments-highlighted-comment-item-content-body');
     const commentContent = interestedComment ? interestedComment.textContent.trim() : '';
+    console.log('Found comment content in comment item:', commentContent);
 
     return {
         isNewPost: false,

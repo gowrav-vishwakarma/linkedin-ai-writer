@@ -87,6 +87,23 @@
                             Uncheck to send text-only prompts to the model
                         </small>
                     </div>
+                    <div class="form-group mt-3" id="video-frame-options" style="display: none;">
+                        <label for="video-frame-strategy">Video Frame Extraction:</label>
+                        <select id="video-frame-strategy" class="form-control">
+                            <option value="minimal">Minimal (5 frames: start, 25%, 50%, 75%, end)</option>
+                            <option value="moderate">Moderate (10 frames: every 10% of video)</option>
+                            <option value="dense">Dense (every 0.5 seconds)</option>
+                            <option value="very-dense">Very Dense (every 0.25 seconds)</option>
+                            <option value="custom">Custom (specify number of frames)</option>
+                        </select>
+                        <div id="custom-frame-count" class="mt-2" style="display: none;">
+                            <label for="frame-count">Number of frames:</label>
+                            <input type="number" id="frame-count" class="form-control" min="1" max="100" value="5" />
+                            <small class="form-text text-muted">
+                                Higher values = more context usage. Choose based on your model's limits.
+                            </small>
+                        </div>
+                    </div>
                     <button type="submit" class="btn btn-primary mt-4">Save Configuration</button>
                     <button type="button" id="test-connection" class="btn btn-info mt-4 ml-2">Test Connection</button>
                 </div>

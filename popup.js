@@ -126,6 +126,10 @@ const connectionStatus = document.getElementById('connection-status');
 const statusText = document.getElementById('status-text');
 const apiKeyHelp = document.getElementById('api-key-help');
 const supportsMediaCheckbox = document.getElementById('supports-media');
+const videoFrameOptions = document.getElementById('video-frame-options');
+const videoFrameStrategy = document.getElementById('video-frame-strategy');
+const customFrameCount = document.getElementById('custom-frame-count');
+const frameCountInput = document.getElementById('frame-count');
 
 // Initialize the popup
 document.addEventListener('DOMContentLoaded', async () => {
@@ -156,6 +160,11 @@ async function initializeProviderConfig() {
         temperatureInput.value = config.temperature || 0.7;
         temperatureValue.textContent = config.temperature || 0.7;
         supportsMediaCheckbox.checked = (config.supportsMedia !== false);
+        videoFrameStrategy.value = config.videoFrameStrategy || 'minimal';
+        frameCountInput.value = config.customFrameCount || 5;
+        
+        // Show/hide video frame options based on media support
+        updateVideoFrameOptionsVisibility();
         
     } catch (error) {
         console.error('Error initializing provider config:', error);
@@ -200,6 +209,16 @@ function setupEventListeners() {
     // Temperature slider
     temperatureInput.addEventListener('input', (e) => {
         temperatureValue.textContent = e.target.value;
+    });
+    
+    // Media support checkbox
+    supportsMediaCheckbox.addEventListener('change', () => {
+        updateVideoFrameOptionsVisibility();
+    });
+    
+    // Video frame strategy change
+    videoFrameStrategy.addEventListener('change', () => {
+        updateCustomFrameCountVisibility();
     });
     
     // Form submission
@@ -263,7 +282,9 @@ async function saveProviderConfig() {
             customEndpoint: customEndpointInput.value.trim(),
             maxTokens: parseInt(maxTokensInput.value),
             temperature: parseFloat(temperatureInput.value),
-            supportsMedia: supportsMediaCheckbox.checked
+            supportsMedia: supportsMediaCheckbox.checked,
+            videoFrameStrategy: videoFrameStrategy.value,
+            customFrameCount: parseInt(frameCountInput.value)
         };
         
         // Save provider config
@@ -397,4 +418,23 @@ function savePrompts() {
     }
     
     showStatus('Prompts saved successfully!', 'success');
+}
+
+// Update video frame options visibility
+function updateVideoFrameOptionsVisibility() {
+    if (supportsMediaCheckbox.checked) {
+        videoFrameOptions.style.display = 'block';
+        updateCustomFrameCountVisibility();
+    } else {
+        videoFrameOptions.style.display = 'none';
+    }
+}
+
+// Update custom frame count visibility
+function updateCustomFrameCountVisibility() {
+    if (videoFrameStrategy.value === 'custom') {
+        customFrameCount.style.display = 'block';
+    } else {
+        customFrameCount.style.display = 'none';
+    }
 }

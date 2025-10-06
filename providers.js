@@ -270,7 +270,9 @@ const DEFAULT_PROVIDER_CONFIG = {
     maxTokens: 1000,
     temperature: 0.7,
     customEndpoint: '',
-    supportsMedia: true
+    supportsMedia: true,
+    videoFrameStrategy: 'minimal',
+    customFrameCount: 5
 };
 
 // Storage keys

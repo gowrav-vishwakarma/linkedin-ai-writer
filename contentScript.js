@@ -258,15 +258,8 @@ async function extractFramesFromReadyVideo(videoElement) {
         const originalTime = videoElement.currentTime;
         const duration = videoElement.duration || 10; // Default to 10 seconds if duration unknown
         
-        // Extract frames at different time points
-        const timePoints = [];
-        if (duration > 0 && !isNaN(duration)) {
-            // Extract frames at 25%, 50%, 75% of video duration
-            timePoints.push(duration * 0.25, duration * 0.5, duration * 0.75);
-        } else {
-            // If duration is unknown, try to extract from current position
-            timePoints.push(videoElement.currentTime || 0);
-        }
+        // Extract frames based on configured strategy
+        const timePoints = await getVideoTimePoints(videoElement, duration);
         
         console.log(`🎥 Extracting frames at time points: ${timePoints.join(', ')}s`);
         
@@ -333,6 +326,70 @@ async function extractFramesFromReadyVideo(videoElement) {
     }
     
     return frames;
+}
+
+async function getVideoTimePoints(videoElement, duration) {
+    const timePoints = [];
+    
+    // Get provider config to determine frame extraction strategy
+    const providerConfig = await ProviderManager.getProviderConfig();
+    const strategy = providerConfig.videoFrameStrategy || 'minimal';
+    const customCount = providerConfig.customFrameCount || 5;
+    
+    if (duration > 0 && !isNaN(duration)) {
+        switch (strategy) {
+            case 'minimal':
+                // 5 frames: start, 25%, 50%, 75%, end
+                timePoints.push(0, duration * 0.25, duration * 0.5, duration * 0.75, duration);
+                break;
+                
+            case 'moderate':
+                // 10 frames: every 10% of video
+                for (let i = 0; i <= 10; i++) {
+                    timePoints.push(duration * (i / 10));
+                }
+                break;
+                
+            case 'dense':
+                // Every 0.5 seconds
+                timePoints.push(0);
+                for (let time = 0.5; time < duration; time += 0.5) {
+                    timePoints.push(time);
+                }
+                if (!timePoints.includes(duration)) {
+                    timePoints.push(duration);
+                }
+                break;
+                
+            case 'very-dense':
+                // Every 0.25 seconds
+                timePoints.push(0);
+                for (let time = 0.25; time < duration; time += 0.25) {
+                    timePoints.push(time);
+                }
+                if (!timePoints.includes(duration)) {
+                    timePoints.push(duration);
+                }
+                break;
+                
+            case 'custom':
+                // Custom number of evenly spaced frames
+                for (let i = 0; i < customCount; i++) {
+                    timePoints.push(duration * (i / (customCount - 1)));
+                }
+                break;
+                
+            default:
+                // Fallback to minimal
+                timePoints.push(0, duration * 0.25, duration * 0.5, duration * 0.75, duration);
+        }
+    } else {
+        // If duration is unknown, try to extract from current position
+        timePoints.push(videoElement.currentTime || 0);
+    }
+    
+    console.log(`🎥 Using ${strategy} strategy, extracting ${timePoints.length} frames`);
+    return timePoints;
 }
 
 async function extractDocumentInfo(documentElement) {

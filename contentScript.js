@@ -42,6 +42,13 @@ async function captureMediaFromPost(postElement) {
         'video'
     ];
     
+    // Look for document carousel elements
+    const documentSelectors = [
+        '.update-components-document__container',
+        '.document-s-container',
+        '.feed-shared-document'
+    ];
+    
     console.log('🔍 Searching for media in post element:', postElement);
     
     for (const selector of imageSelectors) {
@@ -131,6 +138,26 @@ async function captureMediaFromPost(postElement) {
                 }
             } catch (error) {
                 console.warn('❌ Failed to capture video frames:', error);
+            }
+        }
+    }
+    
+    // Process document carousel elements
+    console.log('📄 Processing document carousel elements...');
+    for (const selector of documentSelectors) {
+        const documents = postElement.querySelectorAll(selector);
+        console.log(`📄 Selector "${selector}" found ${documents.length} documents`);
+        
+        for (const document of documents) {
+            try {
+                console.log('📄 Processing document carousel:', document);
+                const documentInfo = await extractDocumentInfo(document);
+                if (documentInfo) {
+                    mediaElements.push(documentInfo);
+                    console.log('✅ Successfully captured document info');
+                }
+            } catch (error) {
+                console.warn('❌ Failed to capture document info:', error);
             }
         }
     }
@@ -308,6 +335,59 @@ async function extractFramesFromReadyVideo(videoElement) {
     return frames;
 }
 
+async function extractDocumentInfo(documentElement) {
+    try {
+        // Look for iframe with document content
+        const iframe = documentElement.querySelector('iframe');
+        if (!iframe) {
+            console.log('📄 No iframe found in document element');
+            return null;
+        }
+        
+        // Get document title from iframe title attribute
+        const title = iframe.getAttribute('title') || 'LinkedIn Document';
+        console.log('📄 Document title:', title);
+        
+        // Try to get a screenshot of the iframe (this might not work due to CORS)
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas dimensions
+            canvas.width = iframe.clientWidth || 400;
+            canvas.height = iframe.clientHeight || 300;
+            
+            // Try to draw iframe content (may fail due to CORS)
+            ctx.drawImage(iframe, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            
+            return {
+                type: 'image/jpeg',
+                dataUrl: dataUrl,
+                src: iframe.src,
+                title: title,
+                isDocument: true
+            };
+        } catch (screenshotError) {
+            console.log('📄 Cannot capture iframe screenshot due to CORS, creating document info only');
+            
+            // Return document metadata without screenshot
+            return {
+                type: 'text/plain',
+                dataUrl: `data:text/plain;base64,${btoa(`Document: ${title}\nURL: ${iframe.src}`)}`,
+                src: iframe.src,
+                title: title,
+                isDocument: true,
+                isMetadataOnly: true
+            };
+        }
+        
+    } catch (error) {
+        console.warn('❌ Error extracting document info:', error);
+        return null;
+    }
+}
+
 function hasMediaInPost(postElement) {
     const mediaSelectors = [
         '.feed-shared-image',
@@ -324,7 +404,10 @@ function hasMediaInPost(postElement) {
         '.update-components-image__container',
         '.update-components-linkedin-video',
         '.media-player',
-        'video'
+        'video',
+        '.update-components-document__container',
+        '.document-s-container',
+        '.feed-shared-document'
     ];
     
     console.log('🔍 Checking for media in post element:', postElement);
@@ -408,16 +491,34 @@ function createIcon(editingBox) {
             // If we captured media, prepend guidance to consider media as context
             if (capturedMedia && capturedMedia.length > 0) {
                 const hasVideoFrames = capturedMedia.some(media => media.timestamp !== undefined);
-                const hasImages = capturedMedia.some(media => media.timestamp === undefined);
+                const hasImages = capturedMedia.some(media => media.timestamp === undefined && !media.isDocument);
+                const hasDocuments = capturedMedia.some(media => media.isDocument);
                 
                 let visionPrefix = 'You are a vision-capable assistant. Consider the attached media as context when composing the response. ';
                 
-                if (hasVideoFrames && hasImages) {
+                if (hasVideoFrames && hasImages && hasDocuments) {
+                    visionPrefix += 'The media includes images, video frames, and document content. Refer to elements visible in the media when helpful.\n\n';
+                } else if (hasVideoFrames && hasImages) {
                     visionPrefix += 'The media includes both images and video frames. Refer to elements visible in the media when helpful.\n\n';
+                } else if (hasVideoFrames && hasDocuments) {
+                    visionPrefix += 'The media includes video frames and document content. Analyze the visual content and document information when composing your response.\n\n';
+                } else if (hasImages && hasDocuments) {
+                    visionPrefix += 'The media includes images and document content. Consider both visual elements and document information when composing your response.\n\n';
                 } else if (hasVideoFrames) {
                     visionPrefix += 'The media includes video frames extracted from a video. Analyze the visual content in these frames when composing your response.\n\n';
+                } else if (hasDocuments) {
+                    visionPrefix += 'The media includes document content. Consider the document information and any visual elements when composing your response.\n\n';
                 } else {
                     visionPrefix += 'Consider the attached image(s) as context when composing the response. Refer to elements visible in the image(s) when helpful.\n\n';
+                }
+
+                // If there are document metadata items, append them as text context (do not send as images)
+                if (hasDocuments) {
+                    const docs = capturedMedia
+                        .filter(m => m.isDocument)
+                        .map((m, idx) => `Document ${idx + 1}: ${m.title || 'Untitled'}\nURL: ${m.src}`)
+                        .join('\n\n');
+                    visionPrefix += `Document context below for reference:\n\n${docs}\n\n`;
                 }
                 
                 promptText = visionPrefix + promptText;
@@ -428,15 +529,17 @@ function createIcon(editingBox) {
             // Show media indicator if media was captured
             let mediaIndicator = '';
             if (capturedMedia && capturedMedia.length > 0) {
-                const imageCount = capturedMedia.filter(media => media.timestamp === undefined).length;
+                const imageCount = capturedMedia.filter(media => media.timestamp === undefined && !media.isDocument).length;
                 const videoFrameCount = capturedMedia.filter(media => media.timestamp !== undefined).length;
+                const documentCount = capturedMedia.filter(media => media.isDocument).length;
                 
-                if (imageCount > 0 && videoFrameCount > 0) {
-                    mediaIndicator = `\n📷 Processing ${imageCount} image(s) and ${videoFrameCount} video frame(s)...\n`;
-                } else if (videoFrameCount > 0) {
-                    mediaIndicator = `\n🎥 Processing ${videoFrameCount} video frame(s)...\n`;
-                } else {
-                    mediaIndicator = `\n📷 Processing ${imageCount} image(s)...\n`;
+                const parts = [];
+                if (imageCount > 0) parts.push(`${imageCount} image(s)`);
+                if (videoFrameCount > 0) parts.push(`${videoFrameCount} video frame(s)`);
+                if (documentCount > 0) parts.push(`${documentCount} document(s)`);
+                
+                if (parts.length > 0) {
+                    mediaIndicator = `\n📄 Processing ${parts.join(', ')}...\n`;
                 }
             }
             editingBox.innerText = "Working..." + mediaIndicator + promptText;
@@ -448,7 +551,9 @@ function createIcon(editingBox) {
                     mediaContent: capturedMedia
                 });
                 
-                const response = await sendMessageToAI(promptText, capturedMedia);
+                // Only send actual images to the provider (filter out document metadata and non-image types)
+                const imageOnlyMedia = (capturedMedia || []).filter(m => m.type && m.type.startsWith('image/'));
+                const response = await sendMessageToAI(promptText, imageOnlyMedia);
                 if (prompt.replaceText) {
                     editingBox.innerText = response;
                 } else {

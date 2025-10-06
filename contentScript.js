@@ -389,6 +389,7 @@ async function getVideoTimePoints(videoElement, duration) {
     }
     
     console.log(`🎥 Using ${strategy} strategy, extracting ${timePoints.length} frames`);
+    console.log(`🎥 Configuration: strategy=${strategy}, customCount=${customCount}, timePoints=[${timePoints.map(t => t.toFixed(2)).join(', ')}]`);
     return timePoints;
 }
 
@@ -600,18 +601,22 @@ async function createIcon(editingBox) {
             
             // Show media indicator if media was captured
             let mediaIndicator = '';
+            let imageCount = 0;
+            let videoFrameCount = 0;
+            let documentCount = 0;
+            
             if (providerConfig.supportsMedia !== false && capturedMedia && capturedMedia.length > 0) {
-                const imageCount = capturedMedia.filter(media => media.timestamp === undefined && !media.isDocument).length;
-                const videoFrameCount = capturedMedia.filter(media => media.timestamp !== undefined).length;
-                const documentCount = capturedMedia.filter(media => media.isDocument).length;
+                imageCount = capturedMedia.filter(media => media.timestamp === undefined && !media.isDocument).length;
+                videoFrameCount = capturedMedia.filter(media => media.timestamp !== undefined).length;
+                documentCount = capturedMedia.filter(media => media.isDocument).length;
                 
                 const parts = [];
-                if (imageCount > 0) parts.push(`${imageCount} image(s)`);
-                if (videoFrameCount > 0) parts.push(`${videoFrameCount} video frame(s)`);
-                if (documentCount > 0) parts.push(`${documentCount} document(s)`);
+                if (imageCount > 0) parts.push(`📷 ${imageCount} image(s)`);
+                if (videoFrameCount > 0) parts.push(`🎥 ${videoFrameCount} video frame(s)`);
+                if (documentCount > 0) parts.push(`📄 ${documentCount} document(s)`);
                 
                 if (parts.length > 0) {
-                    mediaIndicator = `\n📄 Processing ${parts.join(', ')}...\n`;
+                    mediaIndicator = `\nProcessing ${parts.join(', ')}...\n`;
                 }
             }
             editingBox.innerText = "Working..." + mediaIndicator + promptText;
@@ -625,6 +630,7 @@ async function createIcon(editingBox) {
                 
                 // Only send actual images to the provider (filter out document metadata and non-image types)
                 const imageOnlyMedia = (providerConfig.supportsMedia !== false) ? (capturedMedia || []).filter(m => m.type && m.type.startsWith('image/')) : null;
+                console.log(`📤 Sending to AI: ${imageOnlyMedia ? imageOnlyMedia.length : 0} media items (${imageCount} images + ${videoFrameCount} video frames + ${documentCount} documents)`);
                 const response = await sendMessageToAI(promptText, imageOnlyMedia);
                 if (prompt.replaceText) {
                     editingBox.innerText = response;

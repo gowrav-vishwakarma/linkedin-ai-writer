@@ -19,6 +19,7 @@
                     <select id="provider-select" class="form-control" required>
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic Claude</option>
+                        <option value="gemini">Google Gemini</option>
                         <option value="ollama">Ollama (Local)</option>
                         <option value="lmstudio">LM Studio (Local)</option>
                         <option value="groq">Groq</option>
@@ -34,7 +35,7 @@
                     <label for="api-key">API Key:</label>
                     <input type="password" id="api-key" name="api-key" class="form-control" placeholder="Enter your API key"/>
                     <small class="form-text text-muted" id="api-key-help">
-                        Required for OpenAI, Anthropic, Groq, and Together AI
+                        Required for OpenAI, Anthropic, Gemini, Groq, and Together AI
                     </small>
                 </div>
             </div>
@@ -126,6 +127,7 @@
         <ul class="mb-2">
             <li><strong>OpenAI:</strong> gpt-4o, gpt-4-vision-preview</li>
             <li><strong>Anthropic:</strong> claude-3-5-sonnet-20241022, claude-3-opus-20240229</li>
+            <li><strong>Google Gemini:</strong> gemini-2.0-flash-exp, gemini-1.5-flash</li>
             <li><strong>Ollama (Local):</strong> llava:7b/13b/34b, llama3.2-vision:3b/11b, qwen2.5-vl:3b/7b</li>
             <li><strong>LM Studio (Local):</strong> qwen2.5-vl-7b/3b, llava-7b/13b/34b</li>
         </ul>

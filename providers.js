@@ -259,6 +259,58 @@ const PROVIDERS = {
             }
             throw new Error('No response from Together AI');
         }
+    },
+    
+    gemini: {
+        name: 'Google Gemini',
+        endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent',
+        authType: 'api-key',
+        models: ['gemini-2.0-flash-exp', 'gemini-1.5-flash'],
+        defaultModel: 'gemini-2.0-flash-exp',
+        maxTokens: 4000,
+        temperature: 0.7,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        requestBody: (prompt, config, mediaContent = null) => {
+            const contents = [{
+                parts: []
+            }];
+            
+            // Add text content
+            if (prompt) {
+                contents[0].parts.push({ text: prompt });
+            }
+            
+            // Add media content if provided
+            if (mediaContent && mediaContent.length > 0) {
+                mediaContent.forEach(media => {
+                    contents[0].parts.push({
+                        inline_data: {
+                            mime_type: media.type,
+                            data: media.dataUrl.split(',')[1] // Remove data:image/jpeg;base64, prefix
+                        }
+                    });
+                });
+            }
+            
+            return {
+                contents: contents,
+                generationConfig: {
+                    temperature: config.temperature || 0.7,
+                    maxOutputTokens: config.maxTokens || 1000
+                }
+            };
+        },
+        responseParser: (response) => {
+            if (response.candidates && response.candidates.length > 0) {
+                const candidate = response.candidates[0];
+                if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+                    return candidate.content.parts[0].text.trim();
+                }
+            }
+            throw new Error('No response from Gemini API');
+        }
     }
 };
 
@@ -334,7 +386,8 @@ class ProviderManager {
             throw new Error(`Provider ${providerName} not found`);
         }
         
-        const apiKey = await this.getAPIKey(providerName);
+        // Use API key from config if provided, otherwise get from storage
+        const apiKey = config.apiKey || await this.getAPIKey(providerName);
         if (provider.authType !== 'none' && !apiKey) {
             throw new Error(`API key required for ${provider.name}`);
         }
@@ -346,13 +399,18 @@ class ProviderManager {
         };
         
         const requestBody = provider.requestBody(prompt, requestConfig, mediaContent);
-        const endpoint = config.customEndpoint || provider.endpoint;
+        let endpoint = config.customEndpoint || provider.endpoint;
         
         const headers = { ...provider.headers };
         if (provider.authType === 'bearer') {
             headers.Authorization = `Bearer ${apiKey}`;
         } else if (provider.authType === 'x-api-key') {
             headers['x-api-key'] = apiKey;
+        } else if (provider.authType === 'api-key') {
+            // For Gemini, add API key as query parameter
+            const url = new URL(endpoint);
+            url.searchParams.set('key', apiKey);
+            endpoint = url.toString();
         }
         
         try {

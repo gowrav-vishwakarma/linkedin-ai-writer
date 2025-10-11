@@ -1,4 +1,4 @@
-# LinkedIn AI Writer
+# Useless LinkedIn AI Writer
 
 A Chrome extension that enhances your LinkedIn content creation with AI assistance. Write better posts and comments using various AI providers, with support for images, videos, and documents.
 
